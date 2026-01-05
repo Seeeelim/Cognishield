@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}New Employee - CogniShield{% endblock %}
+{% block content %}
+<h1>Create Employee</h1>
+
+<form method="POST">
+  <label>Email *</label>
+  <input type="email" name="email" required placeholder="employee@company.com" />
+
+  <label>Full name</label>
+  <input type="text" name="full_name" placeholder="Optional" />
+
+  <label>Department</label>
+  <input type="text" name="department" placeholder="e.g. Finance / HR / IT" />
+
+  <button class="btn" type="submit">Create</button>
+</form>
+
+{% endblock %}

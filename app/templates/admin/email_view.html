@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Email #{{ email.id }} - CogniShield{% endblock %}
+{% block content %}
+<h1>Email Viewer</h1>
+
+<p><b>ID:</b> {{ email.id }}</p>
+<p><b>Subject:</b> {{ email.subject or "(no subject)" }}</p>
+<p><b>From:</b> {{ email.from_addr or "(unknown)" }}</p>
+<p><b>Reply-To:</b> {{ email.reply_to or "" }}</p>
+<p><b>Return-Path:</b> {{ email.return_path or "" }}</p>
+<p><b>Ingested via:</b> {{ email.ingested_via }}</p>
+
+<hr />
+
+<hr />
+<h3>Simulate Employee Behavior</h3>
+
+{% if employees|length == 0 %}
+  <p><b>No employees found.</b> Create one first: <a href="/admin/employees/new">New Employee</a></p>
+{% else %}
+  <form method="POST" action="/admin/emails/{{ email.id }}/action">
+    <label>Select Employee *</label>
+    <select name="employee_id" required>
+      <option value="">-- choose --</option>
+      {% for emp in employees %}
+        <option value="{{ emp.id }}">{{ emp.email }}{% if emp.department %} ({{ emp.department }}){% endif %}</option>
+      {% endfor %}
+    </select>
+
+    <label>Action</label>
+    <div style="margin: 10px 0;">
+      <button class="btn" type="submit" name="event_type" value="reported">Report Suspicious</button>
+      <button class="btn" type="submit" name="event_type" value="marked_safe">Mark Safe</button>
+      <button class="btn" type="submit" name="event_type" value="unsure">Unsure</button>
+    </div>
+  </form>
+{% endif %}
+
+<h3>Body</h3>
+<pre style="white-space: pre-wrap;">{{ email.body_text or "" }}</pre>
+
+<hr />
+
+{% if urls and employees|length > 0 %}
+  <hr />
+  <h3>Links detected in this email</h3>
+  <p>Clicking a link logs a <code>clicked_link</code> event (simulated).</p>
+
+  <ul>
+    {% for u in urls %}
+      <li>
+        <form method="POST" action="/admin/emails/{{ email.id }}/click" style="display:inline;">
+          <select name="employee_id" required>
+            <option value="">employee…</option>
+            {% for emp in employees %}
+              <option value="{{ emp.id }}">{{ emp.email }}</option>
+            {% endfor %}
+          </select>
+          <input type="hidden" name="url" value="{{ u }}" />
+          <button class="btn" type="submit">Click link</button>
+        </form>
+        <span style="margin-left: 8px;">{{ u }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+{% if detection %}
+  <h3>Latest Detection</h3>
+  <p><b>Risk score:</b> {{ detection.risk_score }} / 100</p>
+  <p><b>Verdict:</b> {{ detection.verdict }}</p>
+  <p><b>Attack type:</b> {{ detection.attack_type }}</p>
+  <p><b>Strategy:</b> {{ detection.manipulation_strategy }}</p>
+  <p><b>Created:</b> {{ detection.created_at }}</p>
+{% else %}
+  <p><i>No detection has been run yet.</i></p>
+{% endif %}
+
+<form method="POST" action="/admin/emails/{{ email.id }}/detect" style="margin-top: 16px;">
+  <button class="btn" type="submit">Run Detection</button>
+</form>
+
+{% if detection and detection.reasons_json %}
+  <h4>Reasons</h4>
+  <pre style="white-space: pre-wrap;">{{ detection.reasons_json }}</pre>
+{% endif %}
+
+{% if detection and detection.features_json %}
+  <h4>Extracted Features</h4>
+  <pre style="white-space: pre-wrap;">{{ detection.features_json }}</pre>
+{% endif %}
+
+<hr />
+
+<h3>Recent Behavior Events (this email)</h3>
+
+{% if events|length == 0 %}
+  <p>No events yet.</p>
+{% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th><th>Employee ID</th><th>Event</th><th>Metadata</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ev in events %}
+        <tr>
+          <td>{{ ev.event_time }}</td>
+          <td>{{ ev.employee_id }}</td>
+          <td>{{ ev.event_type }}</td>
+          <td>{{ ev.metadata_json or "" }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+
+<p>
+  <a class="btn" href="/admin/emails">Back</a>
+</p>
+{% endblock %}

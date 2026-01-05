@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Emails - CogniShield{% endblock %}
+{% block content %}
+<h1>Ingested Emails</h1>
+
+<p><a class="btn" href="/admin/emails/new">+ Ingest Email</a></p>
+
+{% if emails|length == 0 %}
+  <p>No ingested emails yet.</p>
+{% else %}
+<table>
+  <thead>
+    <tr>
+      <th>ID</th><th>Subject</th><th>From</th><th>Via</th><th>Created</th><th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in emails %}
+      <tr>
+        <td>{{ m.id }}</td>
+        <td>{{ m.subject or "(no subject)" }}</td>
+        <td>{{ m.from_addr or "(unknown)" }}</td>
+        <td>{{ m.ingested_via }}</td>
+        <td>{{ m.created_at }}</td>
+        <td><a class="btn" href="/admin/emails/{{ m.id }}">View</a></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% endblock %}

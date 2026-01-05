@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Ingest Email - CogniShield{% endblock %}
+{% block content %}
+<h1>Ingest Email</h1>
+
+<h3>Option A: Upload .eml</h3>
+<form method="POST" enctype="multipart/form-data">
+  <input type="file" name="eml_file" accept=".eml" />
+  <button class="btn" type="submit">Upload .eml</button>
+</form>
+
+<hr />
+
+<h3>Option B: Paste content</h3>
+<form method="POST">
+  <label>Subject</label>
+  <input type="text" name="subject" />
+
+  <label>From</label>
+  <input type="text" name="from_addr" />
+
+  <label>Reply-To</label>
+  <input type="text" name="reply_to" />
+
+  <label>Return-Path</label>
+  <input type="text" name="return_path" />
+
+  <label>Headers (optional)</label>
+  <textarea name="headers_text" placeholder="Paste headers here (optional)"></textarea>
+
+  <label>Body</label>
+  <textarea name="body_text" placeholder="Paste the email body here"></textarea>
+
+  <button class="btn" type="submit">Ingest pasted content</button>
+</form>
+
+{% endblock %}
