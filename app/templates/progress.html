@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Progress | CogniShield</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.4; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin: 12px 0; }
+    button { padding: 10px 12px; font-size: 15px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #eee; padding: 10px 8px; text-align: left; }
+    .muted { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Progress</h1>
+  <p class="muted">Stats locales (LocalStorage). Rien n’est envoyé à un serveur.</p>
+
+  <div class="card">
+    <button id="clearBtn" type="button">Clear history</button>
+  </div>
+
+  <div class="card">
+    <h2>Summary</h2>
+    <div id="summary"></div>
+  </div>
+
+  <div class="card">
+    <h2>By Bias Tag</h2>
+    <div id="byBias"></div>
+  </div>
+
+  <div class="card">
+    <h2>Recent Attempts</h2>
+    <div id="recent"></div>
+  </div>
+
+  <script>
+    (function () {
+      const STORAGE_KEY = "cognishield_attempts_v1";
+
+      function loadAttempts() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function avg(nums) {
+        if (!nums.length) return 0;
+        return nums.reduce((a, b) => a + b, 0) / nums.length;
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      const attempts = loadAttempts();
+
+      const total = attempts.length;
+      const correct = attempts.filter(a => a.is_correct).length;
+      const accuracy = total ? Math.round((correct / total) * 100) : 0;
+      const avgTimeMs = Math.round(avg(attempts.map(a => a.decision_time_ms)));
+
+      document.getElementById("summary").innerHTML = `
+        <p><strong>Total attempts:</strong> ${total}</p>
+        <p><strong>Accuracy:</strong> ${accuracy}%</p>
+        <p><strong>Average decision time:</strong> ${avgTimeMs} ms</p>
+      `;
+
+      // Group by bias tag
+      const biasStats = new Map();
+      for (const a of attempts) {
+        const tags = Array.isArray(a.bias_tags) ? a.bias_tags : [];
+        for (const t of tags) {
+          if (!biasStats.has(t)) biasStats.set(t, { total: 0, correct: 0, times: [] });
+          const s = biasStats.get(t);
+          s.total += 1;
+          if (a.is_correct) s.correct += 1;
+          if (typeof a.decision_time_ms === "number") s.times.push(a.decision_time_ms);
+        }
+      }
+
+      if (biasStats.size === 0) {
+        document.getElementById("byBias").innerHTML = "<p class='muted'>No data yet.</p>";
+      } else {
+        const rows = Array.from(biasStats.entries()).map(([tag, s]) => {
+          const acc = s.total ? Math.round((s.correct / s.total) * 100) : 0;
+          const t = Math.round(avg(s.times));
+          return `<tr><td>${escapeHtml(tag)}</td><td>${s.total}</td><td>${acc}%</td><td>${t} ms</td></tr>`;
+        }).join("");
+
+        document.getElementById("byBias").innerHTML = `
+          <table>
+            <thead><tr><th>Bias</th><th>Attempts</th><th>Accuracy</th><th>Avg time</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+
+      // Recent attempts (last 10)
+      const recent = attempts.slice(-10).reverse();
+      if (!recent.length) {
+        document.getElementById("recent").innerHTML = "<p class='muted'>No attempts yet. Play a scenario first.</p>";
+      } else {
+        const rows = recent.map(a => {
+          const ok = a.is_correct ? "✅" : "❌";
+          return `<tr>
+            <td>${escapeHtml(a.timestamp_iso || "")}</td>
+            <td>${escapeHtml(a.scenario_id || "")}</td>
+            <td>${escapeHtml(a.selected_choice || "")}</td>
+            <td>${ok}</td>
+            <td>${escapeHtml(a.decision_time_ms || "")}</td>
+          </tr>`;
+        }).join("");
+
+        document.getElementById("recent").innerHTML = `
+          <table>
+            <thead><tr><th>Time</th><th>Scenario</th><th>Choice</th><th>Result</th><th>Time (ms)</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+
+      document.getElementById("clearBtn").addEventListener("click", function () {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      });
+    })();
+  </script>
+</body>
+</html>

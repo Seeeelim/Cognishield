@@ -14,3 +14,7 @@ def play_scenario(scenario_id: str):
         abort(500)
 
     return render_template("play.html", scenario=scenario)
+
+@scenarios_bp.get("/progress")
+def progress():
+    return render_template("progress.html")

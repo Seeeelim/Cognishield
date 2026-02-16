@@ -17,6 +17,7 @@
     </style>
   </head>
   <body>
+
     <h1>{{ scenario.story.title }}</h1>
     <p class="muted">{{ scenario.story.context }}</p>
 
@@ -31,14 +32,19 @@
       <h2>Que fais-tu ?</h2>
       <div id="choices">
         {% for c in scenario.choices %}
-          <button type="button" data-choice-id="{{ c.id }}">{{ c.id }}. {{ c.text }}</button>
+          <button type="button" data-choice-id="{{ c.id }}">
+            {{ c.id }}. {{ c.text }}
+          </button>
         {% endfor %}
       </div>
 
       <div id="result" class="card" style="display:none;">
         <h3>Feedback</h3>
         <p id="resultText"></p>
-        <p class="muted"><strong>Bonne réponse :</strong> <span id="correctChoice"></span></p>
+        <p class="muted">
+          <strong>Bonne réponse :</strong> 
+          <span id="correctChoice"></span>
+        </p>
 
         {% if scenario.warning_signs %}
         <h4>Signaux d’alerte</h4>
@@ -62,12 +68,14 @@
 
     <div class="card tags">
       <div><strong>Difficulté:</strong> {{ scenario.difficulty }}</div>
+
       <div>
         <strong>Biais:</strong>
         {% for t in scenario.bias_tags %}
           <span class="pill">{{ t }}</span>
         {% endfor %}
       </div>
+
       <div>
         <strong>Attack:</strong>
         {% for t in scenario.attack_tags %}
@@ -76,50 +84,130 @@
       </div>
     </div>
 
+    <!-- JSON DATA BLOBS (SAFE FOR JS PARSING) -->
+
     <script id="correctJson" type="application/json">
-  {{ scenario.correct_choice | tojson }}
-</script>
-<script id="feedbackJson" type="application/json">
-  {{ scenario.feedback | tojson }}
-</script>
+      {{ scenario.correct_choice | tojson }}
+    </script>
 
-<script>
-  (function () {
-    const correct = JSON.parse(document.getElementById("correctJson").textContent);
-    const feedback = JSON.parse(document.getElementById("feedbackJson").textContent);
+    <script id="feedbackJson" type="application/json">
+      {{ scenario.feedback | tojson }}
+    </script>
 
-    const choicesDiv = document.getElementById("choices");
-    const resultDiv = document.getElementById("result");
-    const resultText = document.getElementById("resultText");
-    const correctChoice = document.getElementById("correctChoice");
+    <script id="scenarioMetaJson" type="application/json">
+      {{ {
+        "id": scenario.id,
+        "channel": scenario.channel,
+        "difficulty": scenario.difficulty,
+        "bias_tags": scenario.bias_tags,
+        "attack_tags": scenario.attack_tags
+      } | tojson }}
+    </script>
 
-    function lockButtons() {
-      choicesDiv.querySelectorAll("button").forEach(b => b.disabled = true);
-    }
+    <!-- MAIN SCRIPT -->
 
-    function markButtons(selectedId) {
-      choicesDiv.querySelectorAll("button").forEach(b => {
-        const id = b.getAttribute("data-choice-id");
-        if (id === String(correct)) b.classList.add("good");
-        if (id === selectedId && selectedId !== String(correct)) b.classList.add("bad");
-      });
-    }
+    <script>
+      (function () {
 
-    choicesDiv.addEventListener("click", function (e) {
-      const btn = e.target.closest("button");
-      if (!btn) return;
+        const STORAGE_KEY = "cognishield_attempts_v1";
+        const startedAt = Date.now();
 
-      const selectedId = btn.getAttribute("data-choice-id");
+        function loadAttempts() {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : [];
+          } catch (e) {
+            console.warn("Corrupted localStorage, resetting.", e);
+            return [];
+          }
+        }
 
-      lockButtons();
-      markButtons(selectedId);
+        function saveAttempt(attempt) {
+          try {
+            const attempts = loadAttempts();
+            attempts.push(attempt);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(attempts));
+          } catch (e) {
+            console.warn("Failed to save attempt:", e);
+          }
+        }
 
-      correctChoice.textContent = String(correct);
-      resultText.textContent = feedback?.[selectedId] ?? "Feedback indisponible.";
-      resultDiv.style.display = "block";
-      resultDiv.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  })();
-</script>
+        const correct = JSON.parse(
+          document.getElementById("correctJson").textContent
+        );
+
+        const feedback = JSON.parse(
+          document.getElementById("feedbackJson").textContent
+        );
+
+        const meta = JSON.parse(
+          document.getElementById("scenarioMetaJson").textContent
+        );
+
+        const choicesDiv = document.getElementById("choices");
+        const resultDiv = document.getElementById("result");
+        const resultText = document.getElementById("resultText");
+        const correctChoice = document.getElementById("correctChoice");
+
+        function lockButtons() {
+          choicesDiv.querySelectorAll("button")
+            .forEach(b => b.disabled = true);
+        }
+
+        function markButtons(selectedId) {
+          choicesDiv.querySelectorAll("button")
+            .forEach(b => {
+              const id = b.getAttribute("data-choice-id");
+
+              if (id === String(correct)) {
+                b.classList.add("good");
+              }
+
+              if (id === selectedId && selectedId !== String(correct)) {
+                b.classList.add("bad");
+              }
+            });
+        }
+
+        choicesDiv.addEventListener("click", function (e) {
+
+          const btn = e.target.closest("button");
+          if (!btn) return;
+
+          const selectedId = btn.getAttribute("data-choice-id");
+          const decisionTimeMs = Date.now() - startedAt;
+          const isCorrect = selectedId === String(correct);
+
+          saveAttempt({
+            scenario_id: meta.id,
+            channel: meta.channel,
+            difficulty: meta.difficulty,
+            selected_choice: selectedId,
+            correct_choice: String(correct),
+            is_correct: isCorrect,
+            decision_time_ms: decisionTimeMs,
+            bias_tags: meta.bias_tags,
+            attack_tags: meta.attack_tags,
+            timestamp_iso: new Date().toISOString()
+          });
+
+          lockButtons();
+          markButtons(selectedId);
+
+          correctChoice.textContent = String(correct);
+          resultText.textContent =
+            feedback?.[selectedId] ?? "Feedback indisponible.";
+
+          resultDiv.style.display = "block";
+          resultDiv.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+          });
+        });
+
+      })();
+    </script>
+
+<p><a href="/progress">View Progress</a></p>
   </body>
 </html>
