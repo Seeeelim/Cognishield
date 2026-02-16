@@ -7,7 +7,15 @@ from dotenv import load_dotenv
 db = SQLAlchemy()
 migrate = Migrate()
 
+def create_app():
+    app = Flask(__name__)
 
+    from app.routes.scenarios_routes import scenarios_bp
+    app.register_blueprint(scenarios_bp)
+
+    return app
+
+'''
 def create_app():
     load_dotenv()
 
@@ -19,10 +27,5 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
 
-    # Blueprints
-    from app.routes.main import main_bp
-    from app.routes.admin import admin_bp
-    app.register_blueprint(main_bp)
-    app.register_blueprint(admin_bp)
-
     return app
+'''

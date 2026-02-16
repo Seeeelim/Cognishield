@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ scenario.story.title }} | CogniShield</title>
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.4; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+      .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin: 12px 0; }
+      .muted { color: #555; }
+      button { padding: 12px 14px; margin: 6px 0; width: 100%; font-size: 16px; cursor: pointer; }
+      .good { border: 2px solid #2a8f2a; }
+      .bad { border: 2px solid #b00020; }
+      pre { white-space: pre-wrap; word-wrap: break-word; background: #f7f7f7; padding: 12px; border-radius: 8px; }
+      .tags { font-size: 14px; }
+      .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid #ddd; margin-right: 6px; margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>{{ scenario.story.title }}</h1>
+    <p class="muted">{{ scenario.story.context }}</p>
+
+    <div class="card">
+      <h2>Message reçu ({{ scenario.channel }})</h2>
+      <p><strong>From:</strong> {{ scenario.artifact.from }}</p>
+      <p><strong>Subject:</strong> {{ scenario.artifact.subject }}</p>
+      <pre>{{ scenario.artifact.body }}</pre>
+    </div>
+
+    <div class="card">
+      <h2>Que fais-tu ?</h2>
+      <div id="choices">
+        {% for c in scenario.choices %}
+          <button type="button" data-choice-id="{{ c.id }}">{{ c.id }}. {{ c.text }}</button>
+        {% endfor %}
+      </div>
+
+      <div id="result" class="card" style="display:none;">
+        <h3>Feedback</h3>
+        <p id="resultText"></p>
+        <p class="muted"><strong>Bonne réponse :</strong> <span id="correctChoice"></span></p>
+
+        {% if scenario.warning_signs %}
+        <h4>Signaux d’alerte</h4>
+        <ul>
+          {% for s in scenario.warning_signs %}
+            <li>{{ s }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if scenario.next_steps %}
+        <h4>Que faire ensuite</h4>
+        <ul>
+          {% for s in scenario.next_steps %}
+            <li>{{ s }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card tags">
+      <div><strong>Difficulté:</strong> {{ scenario.difficulty }}</div>
+      <div>
+        <strong>Biais:</strong>
+        {% for t in scenario.bias_tags %}
+          <span class="pill">{{ t }}</span>
+        {% endfor %}
+      </div>
+      <div>
+        <strong>Attack:</strong>
+        {% for t in scenario.attack_tags %}
+          <span class="pill">{{ t }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <script id="correctJson" type="application/json">
+  {{ scenario.correct_choice | tojson }}
+</script>
+<script id="feedbackJson" type="application/json">
+  {{ scenario.feedback | tojson }}
+</script>
+
+<script>
+  (function () {
+    const correct = JSON.parse(document.getElementById("correctJson").textContent);
+    const feedback = JSON.parse(document.getElementById("feedbackJson").textContent);
+
+    const choicesDiv = document.getElementById("choices");
+    const resultDiv = document.getElementById("result");
+    const resultText = document.getElementById("resultText");
+    const correctChoice = document.getElementById("correctChoice");
+
+    function lockButtons() {
+      choicesDiv.querySelectorAll("button").forEach(b => b.disabled = true);
+    }
+
+    function markButtons(selectedId) {
+      choicesDiv.querySelectorAll("button").forEach(b => {
+        const id = b.getAttribute("data-choice-id");
+        if (id === String(correct)) b.classList.add("good");
+        if (id === selectedId && selectedId !== String(correct)) b.classList.add("bad");
+      });
+    }
+
+    choicesDiv.addEventListener("click", function (e) {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+
+      const selectedId = btn.getAttribute("data-choice-id");
+
+      lockButtons();
+      markButtons(selectedId);
+
+      correctChoice.textContent = String(correct);
+      resultText.textContent = feedback?.[selectedId] ?? "Feedback indisponible.";
+      resultDiv.style.display = "block";
+      resultDiv.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  })();
+</script>
+  </body>
+</html>
