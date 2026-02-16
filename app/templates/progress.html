@@ -18,6 +18,8 @@
   <p class="muted">Stats locales (LocalStorage). Rien n’est envoyé à un serveur.</p>
 
   <div class="card">
+    <button id="exportJsonBtn" type="button">Export JSON</button>
+    <button id="exportCsvBtn" type="button">Export CSV</button>
     <button id="clearBtn" type="button">Clear history</button>
   </div>
 
@@ -30,6 +32,12 @@
     <h2>By Bias Tag</h2>
     <div id="byBias"></div>
   </div>
+
+  <div class="card">
+    <h2>Top Weak Spots</h2>
+    <div id="weakspots"></div>
+  </div>
+
 
   <div class="card">
     <h2>Recent Attempts</h2>
@@ -54,6 +62,12 @@
         return nums.reduce((a, b) => a + b, 0) / nums.length;
       }
 
+      const attempts = loadAttempts();
+      
+      const avgRisk = Math.round(avg(attempts.map(a => Number(a.risk_points || 0))));
+      const riskScore = Math.max(0, 100 - avgRisk); // 100 = best, 0 = worst
+
+
       function escapeHtml(s) {
         return String(s)
           .replaceAll("&", "&amp;")
@@ -63,17 +77,17 @@
           .replaceAll("'", "&#039;");
       }
 
-      const attempts = loadAttempts();
-
       const total = attempts.length;
       const correct = attempts.filter(a => a.is_correct).length;
       const accuracy = total ? Math.round((correct / total) * 100) : 0;
       const avgTimeMs = Math.round(avg(attempts.map(a => a.decision_time_ms)));
 
-      document.getElementById("summary").innerHTML = `
+        document.getElementById("summary").innerHTML = `
         <p><strong>Total attempts:</strong> ${total}</p>
         <p><strong>Accuracy:</strong> ${accuracy}%</p>
         <p><strong>Average decision time:</strong> ${avgTimeMs} ms</p>
+        <p><strong>Risk Score (0–100):</strong> ${riskScore}</p>
+        <p class="muted">Risk Score = 100 - average risk points. Higher is better.</p>
       `;
 
       // Group by bias tag
@@ -97,6 +111,26 @@
           const t = Math.round(avg(s.times));
           return `<tr><td>${escapeHtml(tag)}</td><td>${s.total}</td><td>${acc}%</td><td>${t} ms</td></tr>`;
         }).join("");
+
+        // Weak spots = bias tags with lowest accuracy (min 2 attempts)
+        const weak = Array.from(biasStats.entries())
+            .map(([tag, s]) => {
+            const acc = s.total ? (s.correct / s.total) : 0;
+            return { tag, total: s.total, accuracy: acc };
+            })
+            .filter(x => x.total >= 2)
+            .sort((a, b) => a.accuracy - b.accuracy)
+            .slice(0, 3);
+
+        if (!weak.length) {
+            document.getElementById("weakspots").innerHTML =
+            "<p class='muted'>Play more scenarios to unlock a reliable diagnosis (need ≥ 2 attempts per bias).</p>";
+        } else {
+            const items = weak.map(w =>
+            `<li><strong>${escapeHtml(w.tag)}</strong> — Accuracy: ${Math.round(w.accuracy * 100)}% (${w.total} attempts)</li>`
+            ).join("");
+            document.getElementById("weakspots").innerHTML = `<ul>${items}</ul>`;
+        }
 
         document.getElementById("byBias").innerHTML = `
           <table>
@@ -129,6 +163,54 @@
           </table>
         `;
       }
+
+      function downloadFile(filename, content, mime) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function toCsv(rows) {
+        const headers = [
+          "timestamp_iso","scenario_id","channel","difficulty",
+          "selected_choice","correct_choice","is_correct",
+          "decision_time_ms","risk_points","bias_tags","attack_tags"
+        ];
+
+        const escapeCsv = (v) => {
+          const s = String(v ?? "");
+          const needsQuotes = s.includes(",") || s.includes("\n") || s.includes('"');
+          const out = s.replaceAll('"', '""');
+          return needsQuotes ? `"${out}"` : out;
+        };
+
+        const lines = [];
+        lines.push(headers.join(","));
+        for (const r of rows) {
+          const line = headers.map(h => {
+            if (h === "bias_tags" || h === "attack_tags") return escapeCsv(JSON.stringify(r[h] || []));
+            return escapeCsv(r[h]);
+          }).join(",");
+          lines.push(line);
+        }
+        return lines.join("\n");
+      }
+
+      document.getElementById("exportJsonBtn").addEventListener("click", function () {
+        const data = JSON.stringify(attempts, null, 2);
+        downloadFile("cognishield_attempts.json", data, "application/json");
+      });
+
+      document.getElementById("exportCsvBtn").addEventListener("click", function () {
+        const csv = toCsv(attempts);
+        downloadFile("cognishield_attempts.csv", csv, "text/csv");
+      });
 
       document.getElementById("clearBtn").addEventListener("click", function () {
         localStorage.removeItem(STORAGE_KEY);

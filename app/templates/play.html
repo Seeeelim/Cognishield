@@ -169,6 +169,26 @@
             });
         }
 
+        function computeRiskPoints(isCorrect, decisionTimeMs, difficulty) {
+            // More points = worse (higher risk)
+            let points = 0;
+
+            // Incorrect answers are the main risk signal
+            if (!isCorrect) points += 60;
+
+            // Speed penalty: fast wrong clicks are dangerous
+            if (!isCorrect && decisionTimeMs < 5000) points += 20;
+
+            // Difficulty weighting
+            if (difficulty === "medium") points += 10;
+            if (difficulty === "hard") points += 20;
+
+            // Clamp 0..100
+            if (points < 0) points = 0;
+            if (points > 100) points = 100;
+            return points;
+        }
+
         choicesDiv.addEventListener("click", function (e) {
 
           const btn = e.target.closest("button");
@@ -177,11 +197,13 @@
           const selectedId = btn.getAttribute("data-choice-id");
           const decisionTimeMs = Date.now() - startedAt;
           const isCorrect = selectedId === String(correct);
+          const risk_points = computeRiskPoints(isCorrect, decisionTimeMs, meta.difficulty);
 
           saveAttempt({
             scenario_id: meta.id,
             channel: meta.channel,
             difficulty: meta.difficulty,
+            risk_points: risk_points,
             selected_choice: selectedId,
             correct_choice: String(correct),
             is_correct: isCorrect,
