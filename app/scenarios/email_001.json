@@ -1,0 +1,38 @@
+{
+  "id": "email_001",
+  "channel": "email",
+  "difficulty": "easy",
+  "story": {
+    "title": "Livraison en attente",
+    "context": "Tu attends un colis. Tu reçois un email qui semble venir d'un transporteur."
+  },
+  "artifact": {
+    "from": "Service Livraison <support@dhl-track-info.com>",
+    "subject": "Action requise : frais de livraison impayés",
+    "body": "Bonjour,\n\nVotre colis est en attente. Merci de régler 1,99€ pour éviter le retour.\n\nLien : http://dhl-track-info.com/pay\n\nCordialement,\nService Livraison"
+  },
+  "choices": [
+    { "id": "A", "text": "Cliquer sur le lien et payer" },
+    { "id": "B", "text": "Vérifier l'adresse email et le lien, puis aller sur le site officiel via un chemin sûr" },
+    { "id": "C", "text": "Répondre à l'email pour demander une preuve" }
+  ],
+  "correct_choice": "B",
+  "warning_signs": [
+    "Domaine email suspect",
+    "Lien non officiel (HTTP, domaine étrange)",
+    "Urgence + petit montant"
+  ],
+  "bias_tags": ["urgency", "scarcity"],
+  "attack_tags": ["phishing", "impersonation"],
+  "feedback": {
+    "A": "Piège classique : petit montant + urgence + lien hors domaine officiel. Ne clique pas, ne paie pas via ce type de lien.",
+    "B": "Bonne pratique : vérifier l'expéditeur et utiliser un chemin sûr (site officiel via favoris ou recherche, jamais via le lien).",
+    "C": "Répondre confirme que ton email est actif et peut déclencher plus de tentatives ciblées."
+  },
+  "next_steps": [
+    "Ne clique pas sur le lien",
+    "Signale l'email comme phishing si possible",
+    "Supprime l'email",
+    "Vérifie le suivi du colis via le site officiel du transporteur"
+  ]
+}
