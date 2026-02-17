@@ -43,10 +43,19 @@
     <div id="weakspots"></div>
   </div>
 
-
   <div class="card">
     <h2>Recent Attempts</h2>
     <div id="recent"></div>
+  </div>
+
+  <div class="card">
+    <h2>Investigation Summary</h2>
+    <div id="investigationSummary"></div>
+  </div>
+
+  <div class="card">
+    <h2>Investigation by Manipulation Type</h2>
+    <div id="investigationByManip"></div>
   </div>
 
   <script>
@@ -68,6 +77,45 @@
       }
 
       const attempts = loadAttempts();
+
+      const investigations = attempts.filter(a => a.event_type === "investigation");
+      const invTotal = investigations.length;
+      const invAvgPrecision = Math.round(avg(investigations.map(a => Number(a.precision || 0))) * 100);
+      const invAvgRecall = Math.round(avg(investigations.map(a => Number(a.recall || 0))) * 100);
+
+      document.getElementById("investigationSummary").innerHTML = invTotal
+        ? `<p><strong>Total investigations:</strong> ${invTotal}</p>
+           <p><strong>Avg precision:</strong> ${invAvgPrecision}%</p>
+           <p><strong>Avg recall:</strong> ${invAvgRecall}%</p>`
+        : "<p class='muted'>No investigation events yet. Use the investigation mode in a scenario.</p>";
+
+      // Group investigations by manipulation_type
+      const invByManip = new Map();
+      for (const a of investigations) {
+        const key = a.manipulation_type || "UNKNOWN";
+        if (!invByManip.has(key)) invByManip.set(key, { n: 0, precisions: [], recalls: [] });
+        const s = invByManip.get(key);
+        s.n += 1;
+        s.precisions.push(Number(a.precision || 0));
+        s.recalls.push(Number(a.recall || 0));
+      }
+
+      if (invByManip.size === 0) {
+        document.getElementById("investigationByManip").innerHTML = "<p class='muted'>No data yet.</p>";
+      } else {
+        const rows = Array.from(invByManip.entries()).map(([k, s]) => {
+          const p = Math.round(avg(s.precisions) * 100);
+          const r = Math.round(avg(s.recalls) * 100);
+          return `<tr><td>${escapeHtml(k)}</td><td>${s.n}</td><td>${p}%</td><td>${r}%</td></tr>`;
+        }).join("");
+
+        document.getElementById("investigationByManip").innerHTML = `
+          <table>
+            <thead><tr><th>Type</th><th>Events</th><th>Avg precision</th><th>Avg recall</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
       
       const avgRisk = Math.round(avg(attempts.map(a => Number(a.risk_points || 0))));
       const riskScore = Math.max(0, 100 - avgRisk); // 100 = best, 0 = worst
