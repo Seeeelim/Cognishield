@@ -1,0 +1,44 @@
+{
+  "id": "call_001",
+  "channel": "sms",
+  "difficulty": "hard",
+  "manipulation_type": "AUTHORITY_IMPERSONATION",
+  "persuasion_tactics": ["authority", "fear", "urgency"],
+  "target_asset": "credentials",
+  "mitre_attack": {
+    "tactics": ["TA0006", "TA0001"],
+    "techniques": ["T1566", "T1110"]
+  },
+  "story": {
+    "title": "Appel: service fraude",
+    "context": "Une personne t'appelle en disant être du service fraude de ta banque."
+  },
+  "artifact": {
+    "from": "Appel téléphonique",
+    "subject": "Appel",
+    "body": "Bonjour, nous avons détecté une transaction suspecte. Pour bloquer, donnez votre code reçu par SMS."
+  },
+  "choices": [
+    { "id": "A", "text": "Donner le code pour bloquer la transaction" },
+    { "id": "B", "text": "Raccrocher et rappeler la banque via le numéro officiel (carte / site officiel)" },
+    { "id": "C", "text": "Demander le nom de l'agent et continuer l'appel" }
+  ],
+  "correct_choice": "B",
+  "warning_signs": [
+    "Demande de code OTP",
+    "Pression immédiate",
+    "Appel entrant non vérifié"
+  ],
+  "bias_tags": ["authority", "fear", "urgency"],
+  "attack_tags": ["vishing", "account_takeover"],
+  "feedback": {
+    "A": "Très dangereux: le code OTP sert souvent à se connecter à ton compte. Ta banque ne le demandera pas.",
+    "B": "Bon choix: coupe le canal, vérifie via un numéro fiable. C'est la règle d'or.",
+    "C": "Nommer un agent ne prouve rien. La vérification doit être externe."
+  },
+  "next_steps": [
+    "Ne partage jamais un OTP",
+    "Rappelle via un numéro officiel",
+    "Surveille et sécurise ton compte (2FA, alertes)"
+  ]
+}

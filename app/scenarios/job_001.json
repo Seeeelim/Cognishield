@@ -1,0 +1,44 @@
+{
+  "id": "job_001",
+  "channel": "email",
+  "difficulty": "hard",
+  "manipulation_type": "REWARD_LURE",
+  "persuasion_tactics": ["curiosity", "scarcity", "urgency"],
+  "target_asset": "pii",
+  "mitre_attack": {
+    "tactics": ["TA0001", "TA0006"],
+    "techniques": ["T1566", "T1056"]
+  },
+  "story": {
+    "title": "Offre de job trop belle",
+    "context": "Tu reçois un email qui promet un job facile et bien payé, et demande des infos personnelles."
+  },
+  "artifact": {
+    "from": "HR Team <recrutement@fast-hire-careers.com>",
+    "subject": "Félicitations - Offre immédiate",
+    "body": "Bonjour,\nVotre profil a été sélectionné.\nSalaire: 1200€/semaine (remote).\nMerci d'envoyer: pièce d'identité + adresse + RIB pour finaliser.\nRépondez dans les 2 heures."
+  },
+  "choices": [
+    { "id": "A", "text": "Envoyer les documents demandés pour ne pas perdre l'opportunité" },
+    { "id": "B", "text": "Vérifier l'entreprise (site officiel, LinkedIn, email domain), et ne jamais envoyer RIB/ID par email" },
+    { "id": "C", "text": "Demander plus d'infos par email et attendre" }
+  ],
+  "correct_choice": "B",
+  "warning_signs": [
+    "Salaire irréaliste",
+    "Demande d'ID + RIB par email",
+    "Deadline artificielle"
+  ],
+  "bias_tags": ["scarcity", "curiosity", "urgency"],
+  "attack_tags": ["phishing", "data_theft"],
+  "feedback": {
+    "A": "Risque élevé: vol d'identité + fraude bancaire. Les recruteurs sérieux ne demandent pas ça par email.",
+    "B": "Excellent: validation externe + principe de minimisation des données.",
+    "C": "Même si tu demandes plus d'infos, l'email peut te garder accroché. Il faut vérifier hors canal."
+  },
+  "next_steps": [
+    "Ne partage pas de documents sensibles",
+    "Vérifie l'entreprise via des sources officielles",
+    "Signale l'email comme fraude si nécessaire"
+  ]
+}

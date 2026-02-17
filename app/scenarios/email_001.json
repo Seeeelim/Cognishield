@@ -1,7 +1,16 @@
 {
-  "id": "email_001",
-  "channel": "email",
-  "difficulty": "easy",
+    "id": "email_001",
+    "channel": "email",
+    "difficulty": "easy",
+
+    "manipulation_type": "URGENT_ACTION",
+    "persuasion_tactics": ["urgency", "scarcity"],
+    "target_asset": "money_transfer",
+
+  "mitre_attack": {
+  "tactics": ["TA0001"],
+  "techniques": ["T1566"]
+  },
   "story": {
     "title": "Livraison en attente",
     "context": "Tu attends un colis. Tu reçois un email qui semble venir d'un transporteur."
@@ -29,6 +38,33 @@
     "B": "Bonne pratique : vérifier l'expéditeur et utiliser un chemin sûr (site officiel via favoris ou recherche, jamais via le lien).",
     "C": "Répondre confirme que ton email est actif et peut déclencher plus de tentatives ciblées."
   },
+    "red_flags": [
+    {
+        "id": "sender_domain",
+        "label": "Domaine de l'expéditeur suspect",
+        "explanation": "Le domaine ne correspond pas au transporteur officiel.",
+        "element_key": "from"
+    },
+    {
+        "id": "http_link",
+        "label": "Lien non sécurisé / domaine étrange",
+        "explanation": "Lien en http + domaine non officiel, classique de phishing.",
+        "element_key": "link"
+    },
+    {
+        "id": "urgent_small_fee",
+        "label": "Urgence + petit montant",
+        "explanation": "Technique de pression: faible somme pour réduire la méfiance.",
+        "element_key": "subject"
+    },
+    {
+        "id": "suspicious_link",
+        "label": "Lien suspect dans le message",
+        "explanation": "Le lien ne correspond pas au domaine officiel et utilise HTTP.",
+        "element_key": "link"
+    }
+
+    ],
   "next_steps": [
     "Ne clique pas sur le lien",
     "Signale l'email comme phishing si possible",

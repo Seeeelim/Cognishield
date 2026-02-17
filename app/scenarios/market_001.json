@@ -1,0 +1,44 @@
+{
+  "id": "market_001",
+  "channel": "sms",
+  "difficulty": "medium",
+  "manipulation_type": "TRUSTED_CHANNEL_ABUSE",
+  "persuasion_tactics": ["convenience", "urgency"],
+  "target_asset": "money_transfer",
+  "mitre_attack": {
+    "tactics": ["TA0001"],
+    "techniques": ["T1566"]
+  },
+  "story": {
+    "title": "Achat sur marketplace",
+    "context": "Tu vends un objet. L'acheteur veut payer via un lien externe 'plus simple'."
+  },
+  "artifact": {
+    "from": "Acheteur",
+    "subject": "Message",
+    "body": "Je prends. Pour le paiement, confirme ici (lien sécurisé): http://pay-market-confirm.com"
+  },
+  "choices": [
+    { "id": "A", "text": "Cliquer et entrer tes infos pour recevoir l'argent" },
+    { "id": "B", "text": "Rester sur la plateforme officielle et refuser tout lien externe" },
+    { "id": "C", "text": "Donner ton email et attendre une confirmation" }
+  ],
+  "correct_choice": "B",
+  "warning_signs": [
+    "Lien externe hors plateforme",
+    "Promesse de simplicité",
+    "Pression pour confirmer vite"
+  ],
+  "bias_tags": ["convenience", "urgency"],
+  "attack_tags": ["credential_theft", "payment_scam"],
+  "feedback": {
+    "A": "Piège: faux paiement qui vole tes infos ou te fait payer au lieu de recevoir.",
+    "B": "Bon choix: les plateformes protègent via leurs propres flux, pas via liens inconnus.",
+    "C": "Donner ton email augmente le spam ciblé. Et ça ne garantit rien."
+  },
+  "next_steps": [
+    "N'utilise que les paiements intégrés",
+    "Ne clique pas sur liens externes",
+    "Signale l'utilisateur à la plateforme"
+  ]
+}

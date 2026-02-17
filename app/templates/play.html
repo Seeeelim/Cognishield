@@ -14,6 +14,9 @@
       pre { white-space: pre-wrap; word-wrap: break-word; background: #f7f7f7; padding: 12px; border-radius: 8px; }
       .tags { font-size: 14px; }
       .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid #ddd; margin-right: 6px; margin-top: 6px; }
+      .clickable { text-decoration: underline; cursor: pointer; padding: 2px 6px; border-radius: 6px; background: #f2f2f2; }
+      .clickable.selected { outline: 2px solid #333; background: #d9d9d9; }
+      .small { font-size: 14px; }
     </style>
   </head>
   <body>
@@ -23,9 +26,21 @@
 
     <div class="card">
       <h2>Message reçu ({{ scenario.channel }})</h2>
-      <p><strong>From:</strong> {{ scenario.artifact.from }}</p>
-      <p><strong>Subject:</strong> {{ scenario.artifact.subject }}</p>
-      <pre>{{ scenario.artifact.body }}</pre>
+
+      <p>
+        <strong>From:</strong>
+        <span class="clickable" data-flag-key="from">{{ scenario.artifact.from }}</span>
+      </p>
+      <p>
+        <strong>Subject:</strong>
+        <span class="clickable" data-flag-key="subject">{{ scenario.artifact.subject }}</span>
+      </p>
+
+      <pre id="emailBody"></pre>
+
+      {% if scenario.channel == "email" %}
+        <p class="muted">Astuce: si un lien est présent, cherche-le dans le texte (mode enquête).</p>
+      {% endif %}
     </div>
 
     <div class="card">
@@ -42,7 +57,7 @@
         <h3>Feedback</h3>
         <p id="resultText"></p>
         <p class="muted">
-          <strong>Bonne réponse :</strong> 
+          <strong>Bonne réponse :</strong>
           <span id="correctChoice"></span>
         </p>
 
@@ -66,6 +81,15 @@
       </div>
     </div>
 
+    {% if scenario.red_flags %}
+      <div class="card" id="investigation">
+        <h2>Mode enquête: clique sur les éléments suspects</h2>
+        <p class="muted small">Clique sur l'expéditeur, l'objet, ou les éléments suspects. Quand tu as fini, valide.</p>
+        <button type="button" id="submitFlagsBtn">Valider les indices</button>
+        <div id="flagsResult" style="display:none;"></div>
+      </div>
+    {% endif %}
+
     <div class="card tags">
       <div><strong>Difficulté:</strong> {{ scenario.difficulty }}</div>
 
@@ -85,7 +109,6 @@
     </div>
 
     <!-- JSON DATA BLOBS (SAFE FOR JS PARSING) -->
-
     <script id="correctJson" type="application/json">
       {{ scenario.correct_choice | tojson }}
     </script>
@@ -100,136 +123,252 @@
         "channel": scenario.channel,
         "difficulty": scenario.difficulty,
         "bias_tags": scenario.bias_tags,
-        "attack_tags": scenario.attack_tags
+        "attack_tags": scenario.attack_tags,
+        "manipulation_type": scenario.manipulation_type if scenario.manipulation_type is defined else None,
+        "target_asset": scenario.target_asset if scenario.target_asset is defined else None,
+        "mitre_attack": scenario.mitre_attack if scenario.mitre_attack is defined else None,
+        "red_flags": scenario.red_flags if scenario.red_flags is defined else [],
+        "body": scenario.artifact.body
       } | tojson }}
     </script>
 
-    <!-- MAIN SCRIPT -->
-
     <script>
-      (function () {
+  (function () {
+    const STORAGE_KEY = "cognishield_attempts_v1";
+    const startedAt = Date.now();
 
-        const STORAGE_KEY = "cognishield_attempts_v1";
-        const startedAt = Date.now();
+    // Read data safely from JSON script tags
+    const correct = JSON.parse(document.getElementById("correctJson").textContent);
+    const feedback = JSON.parse(document.getElementById("feedbackJson").textContent);
+    const meta = JSON.parse(document.getElementById("scenarioMetaJson").textContent);
 
-        function loadAttempts() {
-          try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : [];
-          } catch (e) {
-            console.warn("Corrupted localStorage, resetting.", e);
-            return [];
-          }
+    const redFlags = Array.isArray(meta.red_flags) ? meta.red_flags : [];
+    const found = new Set();
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function loadAttempts() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveAttempt(attempt) {
+      try {
+        const attempts = loadAttempts();
+        attempts.push(attempt);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(attempts));
+      } catch (e) {
+        console.warn("Failed to save attempt:", e);
+      }
+    }
+
+    function computeRiskPoints(isCorrect, decisionTimeMs, difficulty) {
+      let points = 0;
+      if (!isCorrect) points += 60;
+      if (!isCorrect && decisionTimeMs < 5000) points += 20;
+
+      const d = String(difficulty || "").toLowerCase();
+      if (d === "medium") points += 10;
+      if (d === "hard") points += 20;
+
+      return Math.max(0, Math.min(100, points));
+    }
+
+    // ---------------------------
+    // Render email body with clickable URLs (key = "link" to match your JSON)
+    // ---------------------------
+    const bodyEl = document.getElementById("emailBody");
+    if (bodyEl) {
+      const rawBody = String(meta.body || "");
+      const escaped = escapeHtml(rawBody);
+
+      // Match http/https links and wrap them
+      const urlRegex = /\bhttps?:\/\/[^\s]+/g;
+      const withLinks = escaped.replace(urlRegex, (url) => {
+        return `<span class="clickable" data-flag-key="link" title="Cliquer pour marquer comme suspect">${url}</span>`;
+      });
+
+      bodyEl.innerHTML = withLinks;
+    }
+
+    // ---------------------------
+    // Quiz handler
+    // ---------------------------
+    const choicesDiv = document.getElementById("choices");
+    const resultDiv = document.getElementById("result");
+    const resultText = document.getElementById("resultText");
+    const correctChoice = document.getElementById("correctChoice");
+
+    function lockQuizButtons() {
+      if (!choicesDiv) return;
+      choicesDiv.querySelectorAll("button").forEach(b => (b.disabled = true));
+    }
+
+    function markQuizButtons(selectedId) {
+      if (!choicesDiv) return;
+      choicesDiv.querySelectorAll("button").forEach(b => {
+        const id = b.getAttribute("data-choice-id");
+        if (id === String(correct)) b.classList.add("good");
+        if (id === selectedId && selectedId !== String(correct)) b.classList.add("bad");
+      });
+    }
+
+    if (choicesDiv) {
+      choicesDiv.addEventListener("click", function (e) {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+
+        const selectedId = btn.getAttribute("data-choice-id");
+        const decisionTimeMs = Date.now() - startedAt;
+        const isCorrect = selectedId === String(correct);
+        const risk_points = computeRiskPoints(isCorrect, decisionTimeMs, meta.difficulty);
+
+        saveAttempt({
+          event_type: "quiz",
+          scenario_id: meta.id,
+          channel: meta.channel,
+          difficulty: meta.difficulty,
+          manipulation_type: meta.manipulation_type ?? null,
+          target_asset: meta.target_asset ?? null,
+          mitre_attack: meta.mitre_attack ?? null,
+          selected_choice: selectedId,
+          correct_choice: String(correct),
+          is_correct: isCorrect,
+          decision_time_ms: decisionTimeMs,
+          risk_points: risk_points,
+          bias_tags: meta.bias_tags ?? [],
+          attack_tags: meta.attack_tags ?? [],
+          timestamp_iso: new Date().toISOString()
+        });
+
+        lockQuizButtons();
+        markQuizButtons(selectedId);
+
+        if (correctChoice) correctChoice.textContent = String(correct);
+        if (resultText) resultText.textContent = feedback?.[selectedId] ?? "Feedback indisponible.";
+
+        if (resultDiv) {
+          resultDiv.style.display = "block";
+          resultDiv.scrollIntoView({ behavior: "smooth", block: "start" });
         }
+      });
+    }
 
-        function saveAttempt(attempt) {
-          try {
-            const attempts = loadAttempts();
-            attempts.push(attempt);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(attempts));
-          } catch (e) {
-            console.warn("Failed to save attempt:", e);
-          }
+    // ---------------------------
+    // Investigation handler
+    // ---------------------------
+    function computeFlagMetrics(foundIds, trueIds) {
+      const foundSet = new Set(foundIds);
+      const trueSet = new Set(trueIds);
+
+      let tp = 0;
+      for (const id of foundSet) if (trueSet.has(id)) tp++;
+
+      const fp = foundSet.size - tp;
+      const fn = trueSet.size - tp;
+
+      const precision = (tp + fp) ? (tp / (tp + fp)) : 0;
+      const recall = (tp + fn) ? (tp / (tp + fn)) : 0;
+
+      return { tp, fp, fn, precision, recall };
+    }
+
+    function renderFlagsResult(metrics, foundIds, trueIds) {
+      const pct = (x) => Math.round(x * 100);
+
+      const missedIds = trueIds.filter(id => !foundIds.includes(id));
+      const falsePosIds = foundIds.filter(id => !trueIds.includes(id));
+
+      const labelById = {};
+      redFlags.forEach(r => { labelById[r.id] = r.label || r.id; });
+
+      const missedList = missedIds.map(id => `<li>${escapeHtml(labelById[id] || id)}</li>`).join("");
+      const falsePosList = falsePosIds.map(id => `<li>${escapeHtml(labelById[id] || id)}</li>`).join("");
+
+      return `
+        <h3>Résultat enquête</h3>
+        <p><strong>Precision:</strong> ${pct(metrics.precision)}% | <strong>Recall:</strong> ${pct(metrics.recall)}%</p>
+        <p><strong>Bien trouvés (TP):</strong> ${metrics.tp} | <strong>Faux positifs (FP):</strong> ${metrics.fp} | <strong>Ratés (FN):</strong> ${metrics.fn}</p>
+        <div>
+          <h4>Indices ratés</h4>
+          ${missedIds.length ? `<ul>${missedList}</ul>` : "<p class='muted'>Aucun 🎯</p>"}
+        </div>
+        <div>
+          <h4>Faux positifs</h4>
+          ${falsePosIds.length ? `<ul>${falsePosList}</ul>` : "<p class='muted'>Aucun ✅</p>"}
+        </div>
+      `;
+    }
+
+    // ✅ One delegated click handler for ALL clickables (from/subject + dynamic links)
+    if (redFlags.length) {
+      document.addEventListener("click", (e) => {
+        const el = e.target.closest(".clickable");
+        if (!el) return;
+
+        const key = el.getAttribute("data-flag-key");
+        if (!key) return;
+
+        const matched = redFlags.filter(r => r.element_key === key).map(r => r.id);
+        if (!matched.length) return;
+
+        const anySelected = matched.some(id => found.has(id));
+        if (anySelected) {
+          matched.forEach(id => found.delete(id));
+          el.classList.remove("selected");
+        } else {
+          matched.forEach(id => found.add(id));
+          el.classList.add("selected");
         }
+      });
 
-        const correct = JSON.parse(
-          document.getElementById("correctJson").textContent
-        );
+      const submitBtn = document.getElementById("submitFlagsBtn");
+      const out = document.getElementById("flagsResult");
 
-        const feedback = JSON.parse(
-          document.getElementById("feedbackJson").textContent
-        );
+      if (submitBtn && out) {
+        submitBtn.addEventListener("click", () => {
+          const foundIds = Array.from(found);
+          const trueIds = redFlags.map(r => r.id);
+          const metrics = computeFlagMetrics(foundIds, trueIds);
 
-        const meta = JSON.parse(
-          document.getElementById("scenarioMetaJson").textContent
-        );
-
-        const choicesDiv = document.getElementById("choices");
-        const resultDiv = document.getElementById("result");
-        const resultText = document.getElementById("resultText");
-        const correctChoice = document.getElementById("correctChoice");
-
-        function lockButtons() {
-          choicesDiv.querySelectorAll("button")
-            .forEach(b => b.disabled = true);
-        }
-
-        function markButtons(selectedId) {
-          choicesDiv.querySelectorAll("button")
-            .forEach(b => {
-              const id = b.getAttribute("data-choice-id");
-
-              if (id === String(correct)) {
-                b.classList.add("good");
-              }
-
-              if (id === selectedId && selectedId !== String(correct)) {
-                b.classList.add("bad");
-              }
-            });
-        }
-
-        function computeRiskPoints(isCorrect, decisionTimeMs, difficulty) {
-            // More points = worse (higher risk)
-            let points = 0;
-
-            // Incorrect answers are the main risk signal
-            if (!isCorrect) points += 60;
-
-            // Speed penalty: fast wrong clicks are dangerous
-            if (!isCorrect && decisionTimeMs < 5000) points += 20;
-
-            // Difficulty weighting
-            if (difficulty === "medium") points += 10;
-            if (difficulty === "hard") points += 20;
-
-            // Clamp 0..100
-            if (points < 0) points = 0;
-            if (points > 100) points = 100;
-            return points;
-        }
-
-        choicesDiv.addEventListener("click", function (e) {
-
-          const btn = e.target.closest("button");
-          if (!btn) return;
-
-          const selectedId = btn.getAttribute("data-choice-id");
-          const decisionTimeMs = Date.now() - startedAt;
-          const isCorrect = selectedId === String(correct);
-          const risk_points = computeRiskPoints(isCorrect, decisionTimeMs, meta.difficulty);
+          out.innerHTML = renderFlagsResult(metrics, foundIds, trueIds);
+          out.style.display = "block";
+          out.scrollIntoView({ behavior: "smooth", block: "start" });
 
           saveAttempt({
+            event_type: "investigation",
             scenario_id: meta.id,
             channel: meta.channel,
             difficulty: meta.difficulty,
-            risk_points: risk_points,
-            selected_choice: selectedId,
-            correct_choice: String(correct),
-            is_correct: isCorrect,
-            decision_time_ms: decisionTimeMs,
-            bias_tags: meta.bias_tags,
-            attack_tags: meta.attack_tags,
+            manipulation_type: meta.manipulation_type ?? null,
+            target_asset: meta.target_asset ?? null,
+            mitre_attack: meta.mitre_attack ?? null,
+            found_red_flags: foundIds,
+            true_red_flags: trueIds,
+            tp: metrics.tp,
+            fp: metrics.fp,
+            fn: metrics.fn,
+            precision: metrics.precision,
+            recall: metrics.recall,
             timestamp_iso: new Date().toISOString()
           });
-
-          lockButtons();
-          markButtons(selectedId);
-
-          correctChoice.textContent = String(correct);
-          resultText.textContent =
-            feedback?.[selectedId] ?? "Feedback indisponible.";
-
-          resultDiv.style.display = "block";
-          resultDiv.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-          });
         });
+      }
+    }
+  })();
+</script>
 
-      })();
-    </script>
-
-<p><a href="/progress">View Progress</a></p>
+    <p><a href="/progress">View Progress</a></p>
   </body>
 </html>

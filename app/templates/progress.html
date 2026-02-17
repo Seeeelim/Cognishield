@@ -34,6 +34,11 @@
   </div>
 
   <div class="card">
+    <h2>By Manipulation Type</h2>
+    <div id="byManipulation"></div>
+  </div>
+
+  <div class="card">
     <h2>Top Weak Spots</h2>
     <div id="weakspots"></div>
   </div>
@@ -111,6 +116,35 @@
           const t = Math.round(avg(s.times));
           return `<tr><td>${escapeHtml(tag)}</td><td>${s.total}</td><td>${acc}%</td><td>${t} ms</td></tr>`;
         }).join("");
+
+              // Group by manipulation_type
+      const manipStats = new Map();
+      for (const a of attempts) {
+        const key = a.manipulation_type || "UNKNOWN";
+        if (!manipStats.has(key)) manipStats.set(key, { total: 0, correct: 0, risks: [] });
+        const s = manipStats.get(key);
+        s.total += 1;
+        if (a.is_correct) s.correct += 1;
+        s.risks.push(Number(a.risk_points || 0));
+      }
+
+      if (manipStats.size === 0) {
+        document.getElementById("byManipulation").innerHTML = "<p class='muted'>No data yet.</p>";
+      } else {
+        const rows = Array.from(manipStats.entries()).map(([k, s]) => {
+          const acc = s.total ? Math.round((s.correct / s.total) * 100) : 0;
+          const avgRisk = Math.round(avg(s.risks));
+          const score = Math.max(0, 100 - avgRisk);
+          return `<tr><td>${escapeHtml(k)}</td><td>${s.total}</td><td>${acc}%</td><td>${score}</td></tr>`;
+        }).join("");
+
+        document.getElementById("byManipulation").innerHTML = `
+          <table>
+            <thead><tr><th>Type</th><th>Attempts</th><th>Accuracy</th><th>Risk Score</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
 
         // Weak spots = bias tags with lowest accuracy (min 2 attempts)
         const weak = Array.from(biasStats.entries())

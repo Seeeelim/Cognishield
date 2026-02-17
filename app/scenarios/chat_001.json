@@ -1,0 +1,44 @@
+{
+  "id": "chat_001",
+  "channel": "sms",
+  "difficulty": "medium",
+  "manipulation_type": "EMOTIONAL_LEVERAGE",
+  "persuasion_tactics": ["urgency", "shame_guilt", "authority"],
+  "target_asset": "money_transfer",
+  "mitre_attack": {
+    "tactics": ["TA0001"],
+    "techniques": ["T1566"]
+  },
+  "story": {
+    "title": "Message d'un proche",
+    "context": "Tu reçois un message: quelqu'un prétend être un membre de ta famille avec une urgence."
+  },
+  "artifact": {
+    "from": "WhatsApp (numéro inconnu)",
+    "subject": "Message",
+    "body": "Coucou, j'ai cassé mon téléphone. C'est mon nouveau numéro.\nJ'ai un souci urgent, tu peux me faire un virement maintenant ?"
+  },
+  "choices": [
+    { "id": "A", "text": "Faire le virement tout de suite pour aider" },
+    { "id": "B", "text": "Appeler le proche sur l'ancien numéro ou poser une question que seul lui connaît" },
+    { "id": "C", "text": "Demander le RIB/IBAN et attendre la réponse" }
+  ],
+  "correct_choice": "B",
+  "warning_signs": [
+    "Nouveau numéro non vérifié",
+    "Demande d'argent immédiate",
+    "Pression émotionnelle"
+  ],
+  "bias_tags": ["urgency", "shame_guilt"],
+  "attack_tags": ["impersonation", "social_engineering"],
+  "feedback": {
+    "A": "Piège émotionnel: tu aides vite, sans vérifier. C'est exactement ce qu'ils veulent.",
+    "B": "Très bon choix: vérification via canal fiable ou question secrète casse l'attaque.",
+    "C": "Demander un RIB ne vérifie pas l'identité. Le risque reste entier."
+  },
+  "next_steps": [
+    "Vérifie via un canal indépendant",
+    "Signale/bloque le numéro",
+    "Préviens ta famille de l'arnaque"
+  ]
+}

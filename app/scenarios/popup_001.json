@@ -1,0 +1,45 @@
+{
+  "id": "popup_001",
+  "channel": "email",
+  "difficulty": "medium",
+  "manipulation_type": "TECH_SUPPORT_DECEPTION",
+  "persuasion_tactics": ["fear", "urgency", "authority"],
+  "target_asset": "device_access",
+  "mitre_attack": {
+    "tactics": ["TA0002", "TA0006"],
+    "techniques": ["T1204", "T1219"]
+  },
+  "story": {
+    "title": "Pop-up: ordinateur infecté",
+    "context": "En naviguant, une fenêtre s'affiche disant que ton ordinateur est infecté et qu'il faut appeler un numéro."
+  },
+  "artifact": {
+    "from": "Navigateur",
+    "subject": "Alerte",
+    "body": "ALERTE SÉCURITÉ: Virus détecté.\nAppelez immédiatement le support: +1-800-XXX-XXXX\nNe fermez pas cette page."
+  },
+  "choices": [
+    { "id": "A", "text": "Appeler le numéro affiché" },
+    { "id": "B", "text": "Fermer l'onglet / navigateur et lancer un scan via un antivirus connu" },
+    { "id": "C", "text": "Télécharger l'outil proposé pour nettoyer" }
+  ],
+  "correct_choice": "B",
+  "warning_signs": [
+    "Message alarmiste dans le navigateur",
+    "Demande d'appel immédiat",
+    "Pression: 'ne fermez pas'"
+  ],
+  "bias_tags": ["fear", "urgency", "authority"],
+  "attack_tags": ["tech_support_scam"],
+  "feedback": {
+    "A": "Très risqué: ces numéros mènent souvent à des escrocs qui demandent l'accès à distance.",
+    "B": "Bon réflexe: fermer, reprendre le contrôle, utiliser des outils officiels et vérifier calmement.",
+    "C": "Piège classique: le téléchargement peut installer un malware ou donner accès à ton PC."
+  },
+  "next_steps": [
+    "Ferme la page",
+    "Ne rappelle pas le numéro",
+    "Mets à jour navigateur/OS",
+    "Fais un scan avec un antivirus reconnu"
+  ]
+}
