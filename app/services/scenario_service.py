@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 from typing import Any, Dict
-
+from flask import jsonify
+from app.services.scenario_index import list_scenarios
 
 def load_scenario(scenario_id: str) -> Dict[str, Any]:
     """
